@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}SoundStudio - Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-upload me-2"></i>Upload Music
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="upload-area" id="uploadArea">
+                    <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-primary"></i>
+                    <h5>Drag and drop your music file here</h5>
+                    <p class="text-muted">or</p>
+                    <input type="file" id="fileInput" accept=".mp3,.wav,.ogg" class="d-none">
+                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        Choose File
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>About SoundStudio
+                </h5>
+            </div>
+            <div class="card-body">
+                <p>SoundStudio is a powerful music analytics platform that helps you understand your music collection through advanced analysis and visualization.</p>
+                <h6 class="mt-3">Features:</h6>
+                <ul>
+                    <li>Audio feature extraction (tempo, key, chord progressions)</li>
+                    <li>Interactive visualizations of musical characteristics</li>
+                    <li>Song clustering based on musical features</li>
+                    <li>Production technique recommendations</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-line me-2"></i>Analysis Results
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="analysisResults" class="d-none">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">Basic Information</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="basicInfo"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">Spectral Analysis</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="spectralAnalysis"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">Rhythm Analysis</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="rhythmAnalysis"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">Visualizations</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="visualizations"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="loadingSpinner" class="text-center d-none">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Analyzing your music...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const analysisResults = document.getElementById('analysisResults');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    
+    // Handle drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#2980b9';
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.style.borderColor = '#3498db';
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#3498db';
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            handleFile(file);
+        }
+    });
+    
+    // Handle file input
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            handleFile(file);
+        }
+    });
+    
+    function handleFile(file) {
+        if (!file.type.match('audio.*')) {
+            alert('Please upload an audio file (MP3, WAV, or OGG)');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Show loading spinner
+        analysisResults.classList.add('d-none');
+        loadingSpinner.classList.remove('d-none');
+        
+        // Upload and analyze file
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayAnalysis(data.analysis, data.visualizations);
+                analysisResults.classList.remove('d-none');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error uploading file: ' + error);
+        })
+        .finally(() => {
+            loadingSpinner.classList.add('d-none');
+        });
+    }
+    
+    function displayAnalysis(analysis, visualizations) {
+        // Display basic information
+        const basicInfo = document.getElementById('basicInfo');
+        basicInfo.innerHTML = `
+            <p><strong>Tempo:</strong> ${analysis.basic_info.tempo.toFixed(1)} BPM</p>
+            <p><strong>Key:</strong> ${analysis.basic_info.key}</p>
+            <p><strong>Duration:</strong> ${Math.floor(analysis.basic_info.duration / 60)}:${(analysis.basic_info.duration % 60).toFixed(0).padStart(2, '0')}</p>
+        `;
+        
+        // Display spectral analysis
+        const spectralAnalysis = document.getElementById('spectralAnalysis');
+        spectralAnalysis.innerHTML = `
+            <p><strong>Centroid Mean:</strong> ${analysis.spectral_features.centroid_mean.toFixed(2)}</p>
+            <p><strong>Rolloff Mean:</strong> ${analysis.spectral_features.rolloff_mean.toFixed(2)}</p>
+            <p><strong>Bandwidth Mean:</strong> ${analysis.spectral_features.bandwidth_mean.toFixed(2)}</p>
+        `;
+        
+        // Display rhythm analysis
+        const rhythmAnalysis = document.getElementById('rhythmAnalysis');
+        rhythmAnalysis.innerHTML = `
+            <p><strong>Onset Strength:</strong> ${analysis.rhythm_features.onset_strength_mean.toFixed(2)}</p>
+            <p><strong>Rhythm Complexity:</strong> ${analysis.musical_characteristics.rhythm_complexity.toFixed(2)}</p>
+            <p><strong>Timbre:</strong> ${analysis.musical_characteristics.timbre_description}</p>
+        `;
+        
+        // Display visualizations
+        const visualizationsContainer = document.getElementById('visualizations');
+        visualizationsContainer.innerHTML = '';
+        
+        // Create visualization divs
+        Object.entries(visualizations).forEach(([key, viz]) => {
+            const div = document.createElement('div');
+            div.id = key;
+            div.className = 'visualization-container mb-4';
+            visualizationsContainer.appendChild(div);
+            Plotly.newPlot(key, JSON.parse(viz).data, JSON.parse(viz).layout);
+        });
+    }
+});
+</script>
+{% endblock %} 

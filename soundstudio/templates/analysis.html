@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}SoundStudio - Track Analysis{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>Track Analysis
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">Track Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="trackInfo"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">Musical Characteristics</h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="musicalCharacteristics"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">Production Insights</h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="productionInsights"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">Spectral Analysis</h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="spectralAnalysis" class="visualization-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">MFCC Analysis</h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="mfccAnalysis" class="visualization-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">Onset Analysis</h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="onsetAnalysis" class="visualization-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get track ID from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const trackId = urlParams.get('id');
+    
+    if (!trackId) {
+        window.location.href = '/';
+        return;
+    }
+    
+    // Fetch track analysis
+    fetch(`/analysis/${trackId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayAnalysis(data.analysis, data.visualizations);
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error fetching analysis: ' + error);
+        });
+    
+    function displayAnalysis(analysis, visualizations) {
+        // Display track information
+        const trackInfo = document.getElementById('trackInfo');
+        trackInfo.innerHTML = `
+            <p><strong>Duration:</strong> ${analysis.basic_info.duration_formatted}</p>
+            <p><strong>Key:</strong> ${analysis.basic_info.key}</p>
+            <p><strong>Tempo:</strong> ${analysis.basic_info.tempo} BPM</p>
+        `;
+        
+        // Display musical characteristics
+        const musicalCharacteristics = document.getElementById('musicalCharacteristics');
+        musicalCharacteristics.innerHTML = `
+            <p><strong>Rhythm Complexity:</strong> ${analysis.rhythm_analysis.rhythm_complexity}</p>
+            <p><strong>Onset Strength:</strong> ${analysis.rhythm_analysis.onset_strength}</p>
+            <p><strong>Timbre Description:</strong> ${analysis.timbre_analysis.timbre_description}</p>
+        `;
+        
+        // Display production insights
+        const productionInsights = document.getElementById('productionInsights');
+        productionInsights.innerHTML = `
+            <p><strong>Brightness:</strong> ${analysis.spectral_analysis.brightness}</p>
+            <p><strong>Spectral Rolloff:</strong> ${analysis.spectral_analysis.spectral_rolloff}</p>
+            <p><strong>Spectral Bandwidth:</strong> ${analysis.spectral_analysis.spectral_bandwidth}</p>
+            <p><strong>Harmonic Ratio:</strong> ${analysis.timbre_analysis.harmonic_ratio}</p>
+        `;
+        
+        // Display visualizations
+        Plotly.newPlot('spectralAnalysis', visualizations.spectral_analysis.data, visualizations.spectral_analysis.layout);
+        Plotly.newPlot('mfccAnalysis', visualizations.mfcc_analysis.data, visualizations.mfcc_analysis.layout);
+        Plotly.newPlot('onsetAnalysis', visualizations.onset_analysis.data, visualizations.onset_analysis.layout);
+    }
+});
+</script>
+{% endblock %} 

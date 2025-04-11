@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}SoundStudio - Song Clustering{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-upload me-2"></i>Upload Multiple Songs
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="upload-area" id="uploadArea">
+                    <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-primary"></i>
+                    <h5>Drag and drop multiple music files here</h5>
+                    <p class="text-muted">or</p>
+                    <input type="file" id="fileInput" accept=".mp3,.wav,.ogg" multiple class="d-none">
+                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        Choose Files
+                    </button>
+                </div>
+                <div id="selectedFiles" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>About Song Clustering
+                </h5>
+            </div>
+            <div class="card-body">
+                <p>Upload multiple songs to analyze their musical relationships and group them based on similar characteristics.</p>
+                <h6 class="mt-3">Analysis Features:</h6>
+                <ul>
+                    <li>Group songs by musical similarity</li>
+                    <li>Visualize relationships between songs</li>
+                    <li>Identify common patterns and characteristics</li>
+                    <li>Generate insights about your music collection</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-line me-2"></i>Clustering Analysis
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="clusteringResults" class="d-none">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">Cluster Analysis</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="clusterAnalysis"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">Timeline Analysis</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="timelineAnalysis"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="loadingSpinner" class="text-center d-none">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Analyzing your music collection...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const selectedFiles = document.getElementById('selectedFiles');
+    const clusteringResults = document.getElementById('clusteringResults');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    
+    // Handle drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#2980b9';
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.style.borderColor = '#3498db';
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#3498db';
+        const files = e.dataTransfer.files;
+        handleFiles(files);
+    });
+    
+    // Handle file input
+    fileInput.addEventListener('change', (e) => {
+        const files = e.target.files;
+        handleFiles(files);
+    });
+    
+    function handleFiles(files) {
+        if (!files.length) return;
+        
+        // Display selected files
+        selectedFiles.innerHTML = '<h6>Selected Files:</h6><ul class="list-group">';
+        Array.from(files).forEach(file => {
+            if (file.type.match('audio.*')) {
+                selectedFiles.innerHTML += `
+                    <li class="list-group-item">
+                        <i class="fas fa-music me-2"></i>${file.name}
+                    </li>
+                `;
+            }
+        });
+        selectedFiles.innerHTML += '</ul>';
+        
+        const formData = new FormData();
+        Array.from(files).forEach(file => {
+            if (file.type.match('audio.*')) {
+                formData.append('files', file);
+            }
+        });
+        
+        // Show loading spinner
+        clusteringResults.classList.add('d-none');
+        loadingSpinner.classList.remove('d-none');
+        
+        // Upload and analyze files
+        fetch('/cluster', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayClusteringResults(data);
+                clusteringResults.classList.remove('d-none');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error uploading files: ' + error);
+        })
+        .finally(() => {
+            loadingSpinner.classList.add('d-none');
+        });
+    }
+    
+    function displayClusteringResults(data) {
+        // Display cluster analysis
+        const clusterAnalysis = document.getElementById('clusterAnalysis');
+        clusterAnalysis.innerHTML = '';
+        
+        // Create cluster visualization
+        const clusterDiv = document.createElement('div');
+        clusterDiv.id = 'clusterVisualization';
+        clusterDiv.className = 'visualization-container';
+        clusterAnalysis.appendChild(clusterDiv);
+        Plotly.newPlot('clusterVisualization', data.cluster_visualization.data, data.cluster_visualization.layout);
+        
+        // Display cluster information
+        const clusterInfo = document.createElement('div');
+        clusterInfo.className = 'mt-3';
+        clusterInfo.innerHTML = '<h6>Cluster Information:</h6>';
+        
+        Object.entries(data.cluster_analysis.cluster_analysis).forEach(([cluster, info]) => {
+            clusterInfo.innerHTML += `
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <h6 class="card-title">${cluster.replace('_', ' ').toUpperCase()}</h6>
+                        <p class="card-text">
+                            <strong>Number of Songs:</strong> ${info.size}<br>
+                            <strong>Average Tempo:</strong> ${Math.round(info.avg_tempo)} BPM<br>
+                            <strong>Average Brightness:</strong> ${Math.round(info.avg_brightness)}
+                        </p>
+                    </div>
+                </div>
+            `;
+        });
+        
+        clusterAnalysis.appendChild(clusterInfo);
+        
+        // Display timeline analysis
+        const timelineAnalysis = document.getElementById('timelineAnalysis');
+        timelineAnalysis.innerHTML = '';
+        
+        const timelineDiv = document.createElement('div');
+        timelineDiv.id = 'timelineVisualization';
+        timelineDiv.className = 'visualization-container';
+        timelineAnalysis.appendChild(timelineDiv);
+        Plotly.newPlot('timelineVisualization', data.timeline_visualization.data, data.timeline_visualization.layout);
+    }
+});
+</script>
+{% endblock %} 
